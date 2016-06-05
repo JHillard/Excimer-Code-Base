@@ -37,6 +37,14 @@
     int noteThreshold = 6; //Number of times Excimer must see the note before sending it as MIDI
     int buffCounter = 0;  //The current number of times Excimer has seen a note.
 
+    //Mode Filter Variable.      
+    int filteredNote =0;
+    const int BUFF_SIZE = 5;
+    int Ari [BUFF_SIZE] = {13, 13, 13, 13, 13};
+    int currentIndex =0;
+    int SENTINEL_VAL = 13;
+    int NUM_NOTES = 7;
+
     //Note Scaling Etc Variables
     double numNotes = 7; 
     //Using scale Increasing C Major
@@ -61,7 +69,7 @@
     
     void setup() {    // ==============================================================
       pinMode(LED1,OUTPUT);       // enable digital output for turning on LED indicator
-      pinMode(clockPin, INPUT_PULLDOWN);
+      //pinMode(clockPinA, INPUT_PULLDOWN);
       pinMode(b1, INPUT_PULLUP);
       pinMode(b2, INPUT_PULLUP);
       pinMode(b3, INPUT_PULLUP);
@@ -77,8 +85,8 @@
 
      // usbMIDI.sendNoteOn(61, 99, channel);
       delay(2000);
-     //Serial.begin(9600);
-     // Serial.println("Excimer Booted");
+     Serial.begin(9600);
+      Serial.println("Excimer Booted");
     
     //  usbMIDI.sendNoteOn(61, 0, channel);
       
@@ -86,24 +94,29 @@
     } // ==== end setup() ===========
 
     void loop() {  // ================================================================ 
-        if(buffCounter>noteThreshold){
-          buffCounter = 0;
-          //playNote()
-        }
+
+        //Serial.println(analogRead(clockPinA));//Debug, Use to set clockThreshold
+        
+        ///*
         trackHand();
         currPosition = currRatio;
         //if(currPosition != doubleZero) Serial.println(currPosition);
-        
+       ///* 
         noteSpot = int(ceil((currPosition-NoteMin)/(NoteSpan)*numNotes))%int(numNotes)+1;
         if(currPosition != doubleZero) PlaySpot(noteSpot);
         //Breaks up position into Notes. NoteMax Term Normalizes 0-100 as the note Position.
         //numNotes, mod 7, and ceil() buckets our positions into specific notes to play.
         //Plus one is to shift from 0-6 to 1-7
+
+        //Serial.print("CurrPos:"); //Debug. If the numbers keep rising, it's an issue with the Secondary Photocell.
+        //Serial.println(currPosition);
+  
+
         
         //if(currPosition != doubleZero) Serial.println(noteSpot); 
            // }
        // }
-        
+        /*
         if(!digitalRead(b1)){
           digitalWrite(LED1, HIGH);
           //delay(5);
@@ -118,7 +131,7 @@
         }
         /*if(!digitalRead(b3)){
           digitalWrite(LED1, HIGH);
-          delay(5);
+          //delay(5);
           digitalWrite(LED1, LOW);
           usbMIDI.sendNoteOn(61, 99, channel +1 );  // 61 = C#4
         }else{usbMIDI.sendNoteOn(61, 0, channel +1);}  // 61 = C#4
@@ -127,17 +140,19 @@
       //  while (usbMIDI.read()) {
       //  }
       
-        
+      //delay(1);  
+      //*/
       }
 
 void trackHand(){
 
-
+       
        if(analogRead(clockPinA)>clockThreshold ){  //finds the time at the rising clock edge.
           if (!clockHigh){
             lastTime = curTime;
             curTime = micros();
             clockHigh = 1; 
+            //Serial.println("Clocked!");
 
             digitalWrite(flagPin2, HIGH);
             delay(1);
@@ -148,7 +163,7 @@ void trackHand(){
         if (analogRead(handPin) > lightThreshold){ // Finds Rising edge of Hand Clock Pulse
           handTime = micros();
           digitalWrite(flagPin, HIGH);
-          delay(1);
+          delay(1); //Oscope Debug
           digitalWrite(flagPin, LOW);
         }
         
@@ -187,6 +202,7 @@ void PlaySpot(int noteSpot){
     default: intermNum = 13; //13 is SENTINEL VALUE.
       break;
   }
+  //PrintModeArray();
   Enqueue(intermNum);
   filteredNote = Mode();
   lastNoteNumber=noteNumber;
@@ -197,41 +213,37 @@ void PlaySpot(int noteSpot){
   if((lastNoteNumber!=noteNumber) && (intermNum != 13)){// && (micros()>noteStartedTime+4*1000000){
     noteStartedTime=micros();
     PlayNote(noteNumber);
+    Serial.print("Note Played: ");
+    Serial.println(noteNumber);
   }  
   if(micros()>noteStartedTime+noteHoldTime){
-    usbMIDI.sendNoteOn(noteNumber, 0, channel);
+    //usbMIDI.sendNoteOn(noteNumber, 0, 1);
   }
-}
+}//End PlaySpot()
 
 void PlayNote(int noteNumber){
   int channel=1;
-  usbMIDI.sendNoteOn(noteNumber, 99, channel);
-  delay(200);
+  //usbMIDI.sendNoteOn(noteNumber, 99, 1);
+  //delay(200);
 }
-
-const int BUFF_SIZE = 5;
-int[] Ari[BUFF_SIZE];
-int currentIndex =0;
-int SENTINEL_VAL = 13;
-
 void Enqueue(int val){
   Ari[currentIndex] = val;
   currentIndex++;
-  if(currentIndex>=SIZE) currentIndex=currentIndex%SIZE;
+  if(currentIndex>=BUFF_SIZE) currentIndex=currentIndex%BUFF_SIZE;
 }
-int NUM_NOTES = 7;
+
 int Mode(){
-  int[] noteFrequency[SENTINEL_VAL] //to allow for -1 sentinel value. (SENTINEL VAL has to be !-1, maybe 13?
-  for(int i=0; i<Ari.size(); i++){
-     noteFrequnecy[Ari[i]]++;    //Iterates through all values once and tallies everytime a value shows up
+  int noteFrequency [13] = {0,0,0,0,0,0,0,0,0,0,0,0,0}; //to allow for -1 sentinel value. (SENTINEL VAL has to be !-1, maybe 13?
+  for(int i=0; i<sizeof(Ari)/sizeof(Ari[0]); i++){
+     noteFrequency[Ari[i]]++;    //Iterates through all values once and tallies everytime a value shows up
   }
   int maxOccur = -1;
   int maxIndex =-1;
-  for(int j=0; j<noteFrequency.size(); j++){ //Finds the maximum occurances for each index, then returns the index
+  for(int j=0; j<sizeof(noteFrequency)/sizeof(noteFrequency[0]); j++){ //Finds the maximum occurances for each index, then returns the index
     //(The index of this array is the noteNumber).
-    if(noteFrequency[i]>maxOccur){
-      maxOccur = noteFrequency[i];
-      maxIndex = i;
+    if(noteFrequency[j]>maxOccur){
+      maxOccur = noteFrequency[j];
+      maxIndex = j;
     } 
   }
   return maxIndex; 
@@ -239,11 +251,13 @@ int Mode(){
 
 
 void PrintModeArray(){
-  for(int i=0; i<Ari.size(); i++){
-     Serial.print(Ari[i] + ",");
+  for(int i=0; i<sizeof(Ari)/sizeof(Ari[0]); i++){
+     Serial.print(Ari[i]);
+     Serial.print(",");
      }
   Serial.println("<^-^-^-Circular Array Values");
-  Serial.println("Mode: " + Mode());   
+  Serial.print("Mode: ");
+  Serial.println(Mode());   
   }
 
 

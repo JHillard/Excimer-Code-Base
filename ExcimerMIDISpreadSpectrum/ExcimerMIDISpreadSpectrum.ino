@@ -184,17 +184,14 @@ void PlaySpot(int noteSpot){
       break;
     case 7: intermNum = 11;
       break;
-    default: intermNum = 13; //13 is SENTINEL VALUE.
+    default: intermNum = 0;
       break;
   }
-  Enqueue(intermNum);
-  filteredNote = Mode();
+
+  
   lastNoteNumber=noteNumber;
-  noteNumber = 12*Octave + filteredNote;
-  if(lastNoteNumber==noteNumber){
-    noteStartedTime=micros();
-  }
-  if((lastNoteNumber!=noteNumber) && (intermNum != 13)){// && (micros()>noteStartedTime+4*1000000){
+  noteNumber = 10*noteSpot;
+  if((lastNoteNumber!=noteNumber) && (intermNum != 0)){// && (micros()>noteStartedTime+4*1000000){
     noteStartedTime=micros();
     PlayNote(noteNumber);
   }  
@@ -208,42 +205,5 @@ void PlayNote(int noteNumber){
   usbMIDI.sendNoteOn(noteNumber, 99, channel);
   delay(200);
 }
-
-const int BUFF_SIZE = 5;
-int[] Ari[BUFF_SIZE];
-int currentIndex =0;
-int SENTINEL_VAL = 13;
-
-void Enqueue(int val){
-  Ari[currentIndex] = val;
-  currentIndex++;
-  if(currentIndex>=SIZE) currentIndex=currentIndex%SIZE;
-}
-int NUM_NOTES = 7;
-int Mode(){
-  int[] noteFrequency[SENTINEL_VAL] //to allow for -1 sentinel value. (SENTINEL VAL has to be !-1, maybe 13?
-  for(int i=0; i<Ari.size(); i++){
-     noteFrequnecy[Ari[i]]++;    //Iterates through all values once and tallies everytime a value shows up
-  }
-  int maxOccur = -1;
-  int maxIndex =-1;
-  for(int j=0; j<noteFrequency.size(); j++){ //Finds the maximum occurances for each index, then returns the index
-    //(The index of this array is the noteNumber).
-    if(noteFrequency[i]>maxOccur){
-      maxOccur = noteFrequency[i];
-      maxIndex = i;
-    } 
-  }
-  return maxIndex; 
-}
-
-
-void PrintModeArray(){
-  for(int i=0; i<Ari.size(); i++){
-     Serial.print(Ari[i] + ",");
-     }
-  Serial.println("<^-^-^-Circular Array Values");
-  Serial.println("Mode: " + Mode());   
-  }
 
 
