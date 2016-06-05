@@ -54,12 +54,13 @@
     double NoteMax= 82;
     double NoteSpan = NoteMax-NoteMin;
     int noteSpot;
+    int lastNoteNumber;
 
     //MIDI Note Constants
     int Octave = 4;
     int noteNumber;
     unsigned long  noteStartedTime;
-    double noteHoldTime = 4*100;
+    unsigned long noteHoldTime = 10*100000;
 
     //Current Note Plan: Make Note play for 4 seconds and fade slowly out after being pressed. Only start new note if it
     //sees a new _different_ note being played.
@@ -102,8 +103,10 @@
         currPosition = currRatio;
         //if(currPosition != doubleZero) Serial.println(currPosition);
        ///* 
-        noteSpot = int(ceil((currPosition-NoteMin)/(NoteSpan)*numNotes))%int(numNotes)+1;
-        if(currPosition != doubleZero) PlaySpot(noteSpot);
+        if(currPosition != doubleZero) Serial.println(currPosition);
+        noteSpot = int(ceil((currPosition-NoteMin)/(NoteSpan)*numNotes))%int(numNotes+1) +1;
+        if((currPosition>NoteMax) || (currPosition<NoteMin-7) || (currPosition == doubleZero)) noteSpot = 13; 
+        PlaySpot(noteSpot);
         //Breaks up position into Notes. NoteMax Term Normalizes 0-100 as the note Position.
         //numNotes, mod 7, and ceil() buckets our positions into specific notes to play.
         //Plus one is to shift from 0-6 to 1-7
@@ -182,7 +185,6 @@ void PlaySpot(int noteSpot){
   //1-2-3-4-5-6-7
   //0-2-4-5-7-9-11
   int intermNum;
-  int lastNoteNumber;
   //Serial.println(noteSpot);
   switch(noteSpot){
     case 1: intermNum = 0;
@@ -203,34 +205,53 @@ void PlaySpot(int noteSpot){
       break;
   }
   //PrintModeArray();
-  Enqueue(intermNum);
-  filteredNote = Mode();
-  lastNoteNumber=noteNumber;
-  noteNumber = 12*Octave + filteredNote;
+  if(intermNum!=13){
+    Enqueue(intermNum);
+    filteredNote = Mode();
+    lastNoteNumber=noteNumber;
+    noteNumber = 12*Octave + filteredNote;
+  }
   
+  //Serial.print("Note Played: ");
+  //Serial.println(noteNumber);
   
-  Serial.print("Note Played: ");
-  Serial.println(noteNumber);
-  
-  if(lastNoteNumber==noteNumber){
+  if((noteNumber != 13) && (lastNoteNumber==noteNumber)){
     noteStartedTime=micros();
   }
+  if(micros()> noteStartedTime+noteHoldTime){
+    //killNotes();
+    usbMIDI.sendNoteOn(lastNoteNumber, 0, 1);
+  }
+  //Serial.print("Time till note Death");
+  //Serial.println(noteStartedTime+noteHoldTime-micros());
   if((lastNoteNumber!=noteNumber) && (intermNum != 13)){// && (micros()>noteStartedTime+4*1000000){
     noteStartedTime=micros();
-    PlayNote(noteNumber);
+    
     usbMIDI.sendNoteOn(lastNoteNumber, 0, 1);
+    Serial.print("NoteOff:");
+    Serial.println(lastNoteNumber);
+    PlayNote(noteNumber);
+    lastNoteNumber = noteNumber;
+    delay(200); //To Prevent MIDI Spamming
+    lastTime = 0; //To reset Harp counter so it doesn't come online after delay and immediately start playing something dumb;
     //Serial.print("Note Played: ");
     //Serial.println(noteNumber);
   }  
-  if(micros()>noteStartedTime+noteHoldTime){
-    usbMIDI.sendNoteOn(noteNumber, 0, 1);
-  }
+  
 }//End PlaySpot()
 
 void PlayNote(int noteNumber){
   int channel=1;
   usbMIDI.sendNoteOn(noteNumber, 99, 1);
+  Serial.print("MIDI: ");
+  Serial.println(noteNumber);
   //delay(200);
+}
+void killNotes(){
+  Serial.println("Kill Notes");
+    for( int i =0; i <13; i++){
+      usbMIDI.sendNoteOn(i+ 12*Octave, 0, 1);//Turns off Note (sets note Velocity to zero);
+    } 
 }
 void Enqueue(int val){
   Ari[currentIndex] = val;
