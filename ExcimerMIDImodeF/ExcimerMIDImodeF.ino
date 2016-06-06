@@ -59,6 +59,7 @@
     //MIDI Note Constants
     int Octave = 4;
     int noteNumber;
+    int lastPlayedNote;
     unsigned long  noteStartedTime;
     unsigned long noteHoldTime = 10*100000;
 
@@ -103,7 +104,7 @@
         currPosition = currRatio;
         //if(currPosition != doubleZero) Serial.println(currPosition);
        ///* 
-        if(currPosition != doubleZero) Serial.println(currPosition);
+        //if(currPosition != doubleZero) Serial.println(currPosition);
         noteSpot = int(ceil((currPosition-NoteMin)/(NoteSpan)*numNotes))%int(numNotes+1) +1;
         if((currPosition>NoteMax) || (currPosition<NoteMin-7) || (currPosition == doubleZero)) noteSpot = 13; 
         PlaySpot(noteSpot);
@@ -209,8 +210,9 @@ void PlaySpot(int noteSpot){
     Enqueue(intermNum);
     filteredNote = Mode();
     lastNoteNumber=noteNumber;
+    //lastPlayedNote=noteNumber;
     noteNumber = 12*Octave + filteredNote;
-  }
+  }else{ lastNoteNumber = 13;}
   
   //Serial.print("Note Played: ");
   //Serial.println(noteNumber);
@@ -220,18 +222,20 @@ void PlaySpot(int noteSpot){
   }
   if(micros()> noteStartedTime+noteHoldTime){
     //killNotes();
-    usbMIDI.sendNoteOn(lastNoteNumber, 0, 1);
+    usbMIDI.sendNoteOn(lastPlayedNote, 0, 1);
   }
+  //Serial.print("LastNote: ");
+  //Serial.println(lastNoteNumber);
   //Serial.print("Time till note Death");
   //Serial.println(noteStartedTime+noteHoldTime-micros());
   if((lastNoteNumber!=noteNumber) && (intermNum != 13)){// && (micros()>noteStartedTime+4*1000000){
     noteStartedTime=micros();
     
     usbMIDI.sendNoteOn(lastNoteNumber, 0, 1);
-    Serial.print("NoteOff:");
-    Serial.println(lastNoteNumber);
+    //Serial.print("NoteOff:");
+    //Serial.println(lastNoteNumber);
     PlayNote(noteNumber);
-    lastNoteNumber = noteNumber;
+    lastPlayedNote = noteNumber;
     delay(200); //To Prevent MIDI Spamming
     lastTime = 0; //To reset Harp counter so it doesn't come online after delay and immediately start playing something dumb;
     //Serial.print("Note Played: ");
